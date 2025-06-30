@@ -36,8 +36,7 @@ function App() {
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef(null);
   const [speechRecognized, setSpeechRecognized] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -72,61 +71,61 @@ function App() {
     if (e.key === "Enter") sendMessage();
   };
 
-  const handleVoiceInput = async () => {
-    if (!navigator.mediaDevices) {
-      alert("Audio recording not supported in this browser.");
+  const handleVoiceInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech Recognition not supported in this browser.");
       return;
     }
+    setSpeechRecognized(false);
 
-    setIsRecording(true);
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-
-    audioChunksRef.current = [];
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) {
-        audioChunksRef.current.push(e.data);
-      }
-    };
-
-    recorder.onstop = async () => {
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setSpeechRecognized(true);
       setIsRecording(false);
-
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'audio.wav');
-
-      try {
-        const res = await axios.post("http://localhost:8000/transcribe", formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        setInput(res.data.transcript || "");
-      } catch (err) {
-        alert("Transcription failed.");
-      }
-
-      // Stop all audio tracks to free the microphone
-      stream.getTracks().forEach((track) => track.stop());
     };
 
-    recorder.start();
-    mediaRecorderRef.current = recorder;
+    recognition.onerror = (event) => {
+      console.error("Recognition error:", event.error);
+      // alert("Could not recognize speech. Please try again.");
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      if (!speechRecognized) {
+        // alert("No speech detected. Please try again.");
+        setIsRecording(false);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+    recognition.start();
   };
 
   const handleStopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      console.log("Recording stopped.");
+      console.log("Recognition instance:", recognitionRef.current);
+      console.log("text", input);
     }
   };
 
   const handleCancelRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
     }
     setIsRecording(false);
   };
+
+
 
   return (
 
@@ -191,7 +190,7 @@ function App() {
         isRecording && (
           <div className="voice-modal">
             <div className="voice-modal-content">
-              <p className="recording-text">Recording... Speak now</p>
+              <p className="recording-text">🎤 Recording... Speak now</p>
               <div className="voice-modal-actions">
                 <button className="stop-btn" onClick={handleStopRecording} title="Stop Recording">
                   &#9632;

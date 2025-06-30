@@ -1,10 +1,11 @@
 import os
 from dotenv import load_dotenv, find_dotenv
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi import UploadFile, File
 import openai
 import tempfile
-
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from groq import Groq
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
@@ -15,13 +16,26 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 # === Load environment variables ===
 load_dotenv(find_dotenv())
+os.environ["OPENAI_API_KEY"] = os.environ.get("GROQ_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-# === Flask app setup ===
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)    
+# === FastAPI app setup ===
+app = FastAPI()
+
 client = Groq(api_key=GROQ_API_KEY)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# === Request schema ===
+class ChatRequest(BaseModel):
+    question: str
 
 # === Prompt template ===
 prompt = PromptTemplate(
@@ -40,6 +54,7 @@ prompt = PromptTemplate(
 """,
     input_variables=["context", "question"]
 )
+# Start the answer directly. No small talk please.
 
 # === Load FAISS and embeddings ===
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
@@ -71,35 +86,25 @@ qa_chain = ConversationalRetrievalChain.from_llm(
     output_key="answer"
 )
 
-# === /chat endpoint ===
-@app.route("/chat", methods=["POST"])
-def chat():
+# === Define POST endpoint ===
+@app.post("/chat")
+async def chat(request: ChatRequest):
     try:
-        data = request.get_json()
-        question = data.get("question", "")
-        result = qa_chain.invoke({"question": question})
-        return jsonify({"answer": result["answer"]})
+        result = qa_chain.invoke({"question": request.question})
+        return {"answer": result["answer"]}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return {"error": str(e)}
 
-# === /transcribe endpoint ===
-@app.route("/transcribe", methods=["POST"])
-def transcribe():
+
+
+@app.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...)):
     try:
-        if "audio" not in request.files:
-            print("No audio file uploaded")
-            return jsonify({"error": "No audio file uploaded"}), 400
-        audio = request.files["audio"]
-        print("Audio file received:", audio.filename)
-
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-            audio.save(tmp)
+            tmp.write(await audio.read())
             tmp.flush()
             temp_path = tmp.name
 
-        print("Saved audio to:", temp_path)
-
-        # Use Groq client for Whisper transcription
         with open(temp_path, "rb") as f:
             transcription = client.audio.transcriptions.create(
                 file=(audio.filename, f, "audio/wav"),
@@ -108,11 +113,6 @@ def transcribe():
                 language="en"
             )
 
-        print("Transcript:", transcription)
-        return jsonify({"transcript": transcription})  # transcription is already a string
+        return {"transcript": transcription}
     except Exception as e:
-        print("Transcribe error:", e)
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+        return {"error": str(e)}
