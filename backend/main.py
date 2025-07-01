@@ -27,7 +27,7 @@ client = Groq(api_key=GROQ_API_KEY)
 prompt = PromptTemplate(
     template="""
     You are a kind and helpful medical assistant designed to support patients.
-    Use the information provided in the context to answer the patient’s question. If the question is not relateed to context just search for the question ,you may use general medical knowledge to help — but only if you are sure it’s accurate and safe. Never guess or assume.
+    Use the information provided in the context to answer the patient’s question. If the question is not related to context just search for the question ,you may use general medical knowledge to help — but only if you are sure it’s accurate and safe. Never guess or assume.
     Speak in a clear and simple way that anyone can understand. Avoid medical terms unless absolutely necessary — and if you use them, explain them in plain, friendly language.
     Always aim to reassure the patient and provide helpful, safe information.
     If you dont know the answer, just say that you dont know, dont try to make up an answer. 
@@ -40,6 +40,9 @@ prompt = PromptTemplate(
 """,
     input_variables=["context", "question"]
 )
+
+
+
 
 # === Load FAISS and embeddings ===
 embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
