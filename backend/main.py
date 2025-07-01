@@ -116,6 +116,14 @@ def transcribe():
     except Exception as e:
         print("Transcribe error:", e)
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/reset", methods=["POST"])
+def reset():
+    try:
+        memory.clear()
+        return jsonify({"success": True, "message": "Memory reset."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)

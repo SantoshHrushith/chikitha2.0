@@ -414,3 +414,15 @@ body {
   font-weight: 500;
   letter-spacing: 0.5px;
 }
+
+.refresh-btn {
+  background: none;
+  border: none;
+  color: #1e7c5a;
+  margin-left: 10px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.refresh-btn:hover {
+  color: #0e4c2a;
+}

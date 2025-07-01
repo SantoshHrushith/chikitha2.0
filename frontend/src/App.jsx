@@ -3,6 +3,7 @@ import axios from 'axios';
 import './App.css';
 import { useRef } from 'react';
 import { useEffect } from 'react';
+import { IoMdRefresh } from "react-icons/io";
 import { IoSend } from "react-icons/io5";
 import { GrMicrophone } from "react-icons/gr";
 import { FaRegStopCircle } from "react-icons/fa";
@@ -42,6 +43,8 @@ function App() {
   const [speechRecognized, setSpeechRecognized] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const typewriterRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -135,19 +138,33 @@ function App() {
   return (
     <div className="App">
       <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="chat-bg-video"
-        >
-          <source src="/b4.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="chat-bg-video"
+      >
+        <source src="/b4.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
       <div className="chat-container">
-        
-        <h1 className="title">🩺 Chikitsa - Medical Chatbot</h1>
 
+        <h1 className="title">🩺 Chikitsa - Medical Chatbot</h1>
+        <button
+          className="refresh-btn"
+          title="Reset Conversation"
+          style={{ marginLeft: 16, fontSize: 22, verticalAlign: "middle", cursor: "pointer" }}
+          onClick={async () => {
+            try {
+              await axios.post("http://localhost:8000/reset");
+              setMessages([]);
+            } catch {
+              alert("Failed to reset conversation.");
+            }
+          }}
+        >
+          <IoMdRefresh />
+        </button>
         <div className="chat-window">
           {messages.length === 0 ? (
             <div className="empty-chat-message">
