@@ -12,39 +12,69 @@ import { GiCancel } from "react-icons/gi";
 
 
 // Typewriter effect component
-function Typewriter({ text, onDone }) {
+// function Typewriter({ text, onDone }) {
+//   const [displayed, setDisplayed] = useState("");
+
+//   useEffect(() => {
+//     setDisplayed(""); // Reset on new text
+//     if (!text || typeof text !== "string") return;
+//     let i = 0;
+//     const interval = setInterval(() => {
+//       setDisplayed(text.slice(0, i + 1));
+//       i++;
+//       if (i >= text.length) {
+//         clearInterval(interval);
+//         if (onDone) onDone();
+//       }
+//     }, 20); // Adjust speed here (ms per character)
+//     return () => clearInterval(interval);
+//   }, [text, onDone]);
+
+//   return <span>{displayed}</span>;
+// }
+
+function Typewriter({ text, onDone, cancelRef, onCancel }) {
   const [displayed, setDisplayed] = useState("");
+  const intervalRef = useRef();
 
   useEffect(() => {
     setDisplayed(""); // Reset on new text
     if (!text || typeof text !== "string") return;
     let i = 0;
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setDisplayed(text.slice(0, i + 1));
       i++;
       if (i >= text.length) {
-        clearInterval(interval);
+        clearInterval(intervalRef.current);
         if (onDone) onDone();
       }
-    }, 20); // Adjust speed here (ms per character)
-    return () => clearInterval(interval);
+    }, 20);
+    return () => clearInterval(intervalRef.current);
   }, [text, onDone]);
+
+  // Expose cancel method to parent
+  useEffect(() => {
+    if (cancelRef) {
+      cancelRef.current = () => {
+        clearInterval(intervalRef.current);
+        if (onCancel) onCancel(displayed);
+      };
+    }
+  }, [cancelRef, displayed, onCancel]);
 
   return <span>{displayed}</span>;
 }
-
 
 function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const recognitionRef = useRef(null);
-  const [speechRecognized, setSpeechRecognized] = useState(false);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const typewriterRef = useRef(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [typingMsgIndex, setTypingMsgIndex] = useState(null);
+  const typewriterCancelRef = useRef();
+  const isCancelledRef = useRef(false);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -65,6 +95,7 @@ function App() {
         ...newMessages,
         { sender: "Chikitsa", text: answer }
       ]);
+      setTypingMsgIndex(newMessages.length);
     } catch (err) {
       setMessages([
         ...newMessages,
@@ -73,6 +104,27 @@ function App() {
     }
     setLoading(false);
 
+  };
+  // When typewriter finishes, clear typingMsgIndex
+  const handleTypewriterDone = () => {
+    setTypingMsgIndex(null);
+  };
+
+  // Cancel typewriter
+  const handleTypewriterCancel = () => {
+    if (typewriterCancelRef.current) {
+      typewriterCancelRef.current();
+    }
+  };
+
+  // When typewriter is cancelled, update messages with partial text
+  const handleTypewriterCancelled = (partialText) => {
+    setMessages((msgs) =>
+      msgs.map((msg, idx) =>
+        idx === typingMsgIndex ? { ...msg, text: partialText } : msg
+      )
+    );
+    setTypingMsgIndex(null);
   };
 
   const handleKeyPress = (e) => {
@@ -86,7 +138,7 @@ function App() {
     }
 
     setIsRecording(true);
-
+    isCancelledRef.current = false;
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
 
@@ -100,6 +152,12 @@ function App() {
 
     recorder.onstop = async () => {
       setIsRecording(false);
+      stream.getTracks().forEach((track) => track.stop());
+
+      if (isCancelledRef.current) {
+        // If cancelled, do not transcribe
+        return;
+      }
 
       const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
       const formData = new FormData();
@@ -128,8 +186,9 @@ function App() {
     }
   };
 
-  const handleCancelRecording = () => {
+const handleCancelRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      isCancelledRef.current = true; // <-- Set cancel flag
       mediaRecorderRef.current.stop();
     }
     setIsRecording(false);
@@ -137,7 +196,7 @@ function App() {
 
   return (
     <div className="App">
-      <video
+      {/* <video
         autoPlay
         loop
         muted
@@ -146,7 +205,7 @@ function App() {
       >
         <source src="/b4.mp4" type="video/mp4" />
         Your browser does not support the video tag.
-      </video>
+      </video> */}
       <div className="chat-container">
 
         <h1 className="title">🩺 Chikitsa - Medical Chatbot</h1>
@@ -186,8 +245,13 @@ function App() {
                   <div className="message-bubble">
                     {msg.loading ? (
                       <span className="loader"></span>
-                    ) : isLastBot ? (
-                      <Typewriter text={msg.text} />
+                    ) : isLastBot && typingMsgIndex === i ? (
+                      <Typewriter
+                        text={msg.text}
+                        onDone={handleTypewriterDone}
+                        cancelRef={typewriterCancelRef}
+                        onCancel={handleTypewriterCancelled}
+                      />
                     ) : (
                       msg.text
                     )}
@@ -206,10 +270,14 @@ function App() {
             onKeyDown={handleKeyPress}
             className="input-textarea"
             rows={2}
-            disabled={loading}
+            disabled={loading || typingMsgIndex !== null}
             style={{ resize: "none" }}
           />
-          {input.trim() === "" ? (
+          {typingMsgIndex !== null ? (
+            <button onClick={handleTypewriterCancel} className="cancel-btn" title="Cancel Typing">
+              <FaRegStopCircle />
+            </button>
+          ) : input.trim() === "" ? (
             <button onClick={handleVoiceInput} className="mic-btn" disabled={loading}>
               <GrMicrophone />
             </button>
@@ -219,6 +287,7 @@ function App() {
             </button>
           )}
         </div>
+
         {
           isRecording && (
             <div className="voice-modal">
