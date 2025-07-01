@@ -1,14 +1,10 @@
 import { useState } from 'react';
 import axios from 'axios';
 import './App.css';
-import { useRef } from 'react';
-import { useEffect } from 'react';
 import { IoSend } from "react-icons/io5";
 import { GrMicrophone } from "react-icons/gr";
-import { FaRegStopCircle } from "react-icons/fa";
-import { GiCancel } from "react-icons/gi";
-
-
+import { useRef } from 'react';
+import { useEffect } from 'react';
 
 // Typewriter effect component
 function Typewriter({ text, onDone }) {
@@ -133,94 +129,82 @@ function App() {
   };
 
   return (
-    <div className="App">
-      <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="chat-bg-video"
-        >
-          <source src="/b4.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
-      <div className="chat-container">
-        
-        <h1 className="title">🩺 Chikitsa - Medical Chatbot</h1>
 
-        <div className="chat-window">
-          {messages.length === 0 ? (
-            <div className="empty-chat-message">
-              Hi, How can I help you?
-            </div>
-          ) : (
-            messages.map((msg, i) => {
-              const isLastBot =
-                msg.sender === "Chikitsa" &&
-                i === messages.length - 1 &&
-                !msg.loading;
-              return (
-                <div key={i} className={`chat-message ${msg.sender === "You" ? "user" : "bot"}`}>
-                  <img
-                    src={msg.sender === "You" ? "/user.webp" : "/bot.png"}
-                    alt={msg.sender}
-                    className="avatar"
-                  />
-                  <div className="message-bubble">
-                    {msg.loading ? (
-                      <span className="loader"></span>
-                    ) : isLastBot ? (
-                      <Typewriter text={msg.text} />
-                    ) : (
-                      msg.text
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+    <div className="chat-container">
+      <h1 className="title">🩺 Chikitsa - Medical Chatbot</h1>
 
-        <div className="input-bar">
-          <textarea
-            value={input}
-            placeholder="Ask your medical question..."
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            className="input-textarea"
-            rows={2}
-            disabled={loading}
-            style={{ resize: "none" }}
-          />
-          {input.trim() === "" ? (
-            <button onClick={handleVoiceInput} className="mic-btn" disabled={loading}>
-              <GrMicrophone />
-            </button>
-          ) : (
-            <button onClick={sendMessage} className="send-btn" disabled={loading}>
-              <IoSend />
-            </button>
-          )}
-        </div>
-        {
-          isRecording && (
-            <div className="voice-modal">
-              <div className="voice-modal-content">
-                <p className="recording-text">Recording... Speak now</p>
-                <div className="voice-modal-actions">
-                  <button className="stop-btn" onClick={handleStopRecording} title="Stop Recording">
-                    <FaRegStopCircle />
-                  </button>
-                  <button className="cancel-btn" onClick={handleCancelRecording} title="Cancel">
-                    <GiCancel />
-                  </button>
+      <div className="chat-window">
+        {messages.length === 0 ? (
+          <div className="empty-chat-message">
+            Hi, How can I help you?
+          </div>
+        ) : (
+          messages.map((msg, i) => {
+            const isLastBot =
+              msg.sender === "Chikitsa" &&
+              i === messages.length - 1 &&
+              !msg.loading;
+            return (
+              <div key={i} className={`chat-message ${msg.sender === "You" ? "user" : "bot"}`}>
+                <img
+                  src={msg.sender === "You" ? "/user.webp" : "/bot.png"}
+                  alt={msg.sender}
+                  className="avatar"
+                />
+                <div className="message-bubble">
+                  {msg.loading ? (
+                    <span className="loader"></span>
+                  ) : isLastBot ? (
+                    <Typewriter text={msg.text} />
+                  ) : (
+                    msg.text
+                  )}
                 </div>
               </div>
-            </div>
-          )
-        }
-
+            );
+          })
+        )}
       </div>
+
+      <div className="input-bar">
+        <textarea
+          value={input}
+          placeholder="Ask your medical question..."
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyPress}
+          className="input-textarea"
+          rows={2}
+          disabled={loading}
+          style={{ resize: "none" }}
+        />
+        {input.trim() === "" ? (
+          <button onClick={handleVoiceInput} className="mic-btn" disabled={loading}>
+            <GrMicrophone />
+          </button>
+        ) : (
+          <button onClick={sendMessage} className="send-btn" disabled={loading}>
+            <IoSend />
+          </button>
+        )}
+      </div>
+      {
+        isRecording && (
+          <div className="voice-modal">
+            <div className="voice-modal-content">
+              <p className="recording-text">Recording... Speak now</p>
+              <div className="voice-modal-actions">
+                <button className="stop-btn" onClick={handleStopRecording} title="Stop Recording">
+                  &#9632;
+                </button>
+                <button className="cancel-btn" onClick={handleCancelRecording} title="Cancel">
+                  ✖
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
     </div>
   );
 }
