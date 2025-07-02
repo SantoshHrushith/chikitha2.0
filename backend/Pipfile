@@ -18,6 +18,9 @@ groq = "*"
 flask = "*"
 flask-cors = "*"
 openai = "*"
+pymongo = "*"
+flask-jwt-extended = "*"
+werkzeug = "*"
 
 [dev-packages]
 

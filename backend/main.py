@@ -5,6 +5,13 @@ from flask_cors import CORS
 import openai
 import tempfile
 
+from pymongo import MongoClient
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_jwt_extended import (
+    JWTManager, create_access_token, jwt_required, get_jwt_identity
+)
+import datetime
+
 from groq import Groq
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
@@ -22,6 +29,22 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)    
 client = Groq(api_key=GROQ_API_KEY)
+
+# --- MongoDB Setup ---
+MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+print("Connecting to MongoDB at:", MONGO_URI)
+mongo_client = MongoClient(MONGO_URI)
+mongo_db = mongo_client["medibot"]
+users_col = mongo_db["users"]
+
+# --- JWT Setup ---
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret-key")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = datetime.timedelta(days=7)
+jwt = JWTManager(app)
+
+
+
+
 
 # === Prompt template ===
 prompt = PromptTemplate(
@@ -73,6 +96,34 @@ qa_chain = ConversationalRetrievalChain.from_llm(
     combine_docs_chain_kwargs={"prompt": prompt},
     output_key="answer"
 )
+
+@app.route("/user/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    username = data.get("username", "").strip().lower()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    if not username or not email or not password:
+        return jsonify({"error": "Username, email, and password required"}), 400
+    if users_col.find_one({"email": email}):
+        return jsonify({"error": "Email already exists"}), 409
+    hashed_pw = generate_password_hash(password)
+    users_col.insert_one({"username": username, "email": email, "password": hashed_pw})
+    return jsonify({"success": True, "message": "Registration successful"}) 
+
+
+# --- Login Endpoint ---
+@app.route("/user/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    user = users_col.find_one({"email": email})
+    if not user or not check_password_hash(user["password"], password):
+        return jsonify({"error": "Invalid email or password"}), 401
+    access_token = create_access_token(identity=user["email"])
+    return jsonify({"success": True, "access_token": access_token})
+
 
 # === /chat endpoint ===
 @app.route("/chat", methods=["POST"])
